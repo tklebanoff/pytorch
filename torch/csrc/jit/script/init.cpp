@@ -318,7 +318,7 @@ void initJitScriptBindings(PyObject* module) {
           })
       .def(
           "_get_method",
-          [](Module& self, const std::string& name) -> const Method& {
+          [](Module& self, const std::string& name) -> Method {
             return self.get_method(name);
           },
           py::return_value_policy::reference_internal)
@@ -414,10 +414,9 @@ void initJitScriptBindings(PyObject* module) {
       .def(
           "_method_names",
           [](Module& self) {
-            return fmap(
-                self.get_methods(), [](const std::unique_ptr<Method>& method) {
-                  return method->name();
-                });
+            return fmap(self.get_methods(), [](const Method& method) {
+              return method.name();
+            });
           })
       .def(
           "_create_method_from_trace",
@@ -439,9 +438,8 @@ void initJitScriptBindings(PyObject* module) {
       .def(
           "get_debug_state",
           [](Module& self) {
-            if (self.find_method("forward")) {
-              Method& m = self.get_method("forward");
-              return m.get_executor().getDebugState();
+            if (auto m = self.find_method("forward")) {
+              return m->get_executor().getDebugState();
             }
             throw std::runtime_error(
                 "Attempted to call get_debug_state on a Module without a compiled forward()");
@@ -569,6 +567,7 @@ void initJitScriptBindings(PyObject* module) {
       [](const Def& def, ResolutionCallback rcb, FunctionDefaults defaults) {
         C10_LOG_API_USAGE_ONCE("torch.script.compile");
         CompilationUnit cu;
+
         cu.define({def}, {pythonResolver(rcb)}, nullptr);
         std::shared_ptr<Function> defined = cu.get_functions().at(0);
         defined->setSchema(getSchemaWithNameAndDefaults(
