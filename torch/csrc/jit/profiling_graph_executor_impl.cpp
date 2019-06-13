@@ -32,7 +32,7 @@ ExecutionPlan ProfilingGraphExecutorImpl::getPlanFor(Stack& stack) {
 
   auto copy = pr_->graph()->copy();
   InsertGuards(copy);
-  EliminateGuards(copy);
+  EliminateRedundantGuards(copy);
   InsertBailOuts(copy);
   optimized_plan_ = ExecutionPlan(copy);
   return *optimized_plan_;

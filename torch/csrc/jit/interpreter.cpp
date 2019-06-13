@@ -387,6 +387,11 @@ struct WithCurrentNode {
   Node* old_value_;
 };
 
+// BailoutBlocks are used to temporarily store
+// instructions (typically, argument LOADs and TAIL_CALL)
+// generated for prim::BailOut nodes
+// before they are merged back into
+// CodeImpl._instructions_ by insertBailoutBlocks
 struct BailoutBlock {
   size_t jf_instruction_index; // this node gets patched to jump here on failure
   std::vector<Instruction> instructions; // ends in a TAIL_CALL
@@ -622,6 +627,13 @@ struct CodeImpl {
   }
 
   void emitBailOut(Node* node) {
+    // BailOut node has the `attr::Subgraph` which
+    // contains the original deoptimized version
+    // of a computational graph starting from the
+    // bailout point.
+    // BailOut node's first input is a guarded tensor
+    // the rest are inputs we need to be able to
+    // execute the bailout graph
     emitLoadInputs(node->inputs().slice(0, 1));
     insertInstruction(GUARD, type_table_.size());
     type_table_.emplace_back(node->outputs().at(0)->type());
@@ -751,9 +763,21 @@ struct InterpreterStateImpl : c10::intrusive_ptr_target {
   // minimizing the total number or register
   std::vector<IValue> registers;
 
+  // A Frame captures function's state
+  // (e.g. `pc` and `base_pointer`)
+  // Each Frame corresponds to a call to a `Frame::function`
+  // which has not yet returned
+  // The arguments for `Frame::function`
+  // are located at [base_pointer + arg_number]
   struct Frame {
     std::shared_ptr<CodeImpl> function;
+    // program counter corresponds to the index
+    // of the currently executed instruction
     size_t pc;
+    // marks the start index of the frame
+    // base_pointer is used by TAIL_CALL
+    // to replace the current frame
+    // with a frame of a bailout graph
     size_t base_pointer;
   };
 
@@ -961,6 +985,7 @@ struct InterpreterStateImpl : c10::intrusive_ptr_target {
                 af.functions[inst.X]->get_executor().getPlanFor(stack).code;
             size_t num_inputs = code.num_inputs();
             size_t base_pointer = frames.back().base_pointer;
+            TORCH_INTERNAL_ASSERT(stack.size() >= num_inputs);
             size_t inputs_start = stack.size() - num_inputs;
             for (size_t i = 0; i < num_inputs; ++i) {
               stack.at(base_pointer + i) =
