@@ -944,7 +944,7 @@ void testInsertAndEliminateRedundantGuards() {
   ASSERT_EQ(num_guards, 11);
   // now eliminate as many guards as possible
   // we should be left with two guards on x and y's defs
-  eliminateRedundantGuards(copy);
+  EliminateRedundantGuards(copy);
   num_guards = std::count_if(nodes.begin(), nodes.end(), is_guard);
   ASSERT_EQ(num_guards, 2);
 }
