@@ -981,7 +981,7 @@ void testInsertBailOuts() {
   is.run(stack);
   auto copy = pr->profiled_graph_->copy();
   InsertGuards(copy);
-  eliminateRedundantGuards(copy);
+  EliminateRedundantGuards(copy);
   auto nodes = copy->block()->nodes();
   auto is_guard = [](Node* n) { return n->kind() == prim::Guard; };
   auto num_guards = std::count_if(nodes.begin(), nodes.end(), is_guard);
